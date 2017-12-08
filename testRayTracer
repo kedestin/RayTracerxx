@@ -1,0 +1,7 @@
+newScene 1920 1080
+newObject tinyply/assets/sphere.ply
+newLight  1  1  1 0  0   0
+newLight  1  1  1 100  100   100
+newLight  1  1  1 0  10   1 
+newLight  1  1  1 100  0   100
+render output2.ppm

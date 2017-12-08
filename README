@@ -1,0 +1,313 @@
+ /*
+ *
+ *  COMP 15 Proj 2 Ray Tracer++ - Reverse Polish Notation Arithmetic  
+ *
+ *  README
+ *  
+ *  Modified By kdesti01:
+ *           On 10/5/2017:
+ *
+ */
+
+PURPOSE
+
+        The purpose of this assignment was to implement a Reverse Polish 
+        Notation Calculator, using a stack
+
+HELP
+        Bianca and Max were awesome mentors!
+
+
+        A BUNCH of Slides from  CS departments on Ray tracing and KD Trees
+                
+                http://www.cse.chalmers.se/edu/year/2009/course/TDA361/2006/
+                                   TDA360/Ray%20Tracing%20and%20Radiosity.pdf
+                http://users.jyu.fi/~tro/gtk03/raycasting.pdf
+                https://www.cs.utexas.edu/~theshark/courses/cs354/lectures/
+                                                                 cs354-5.pdf
+                https://www.cs.cmu.edu/afs/cs/academic/class/15462-s09/www/
+                                                            lec/13/lec13.pdf
+                http://pellacini.di.uniroma1.it/teaching/graphics13a/
+                                                        slides/03_raytracing.pdf
+                http://pellacini.di.uniroma1.it/teaching/graphics13a/
+                                                       slides/14_raytracing2.pdf
+                https://pjreddie.com/media/files/Redmon_Thesis.pdf
+
+
+
+
+        
+        Paper Detailing Algorithm to Quickly Build KD Trees
+
+                http://www.irisa.fr/prive/kadi/Sujets_CTR/kadi/
+                                    Kadi_sujet2_article_Kdtree.pdf
+                
+        TinyPly (ply file parser)
+                 https://github.com/ddiakopoulos/tinyply
+
+FILES
+
+        Box.h
+                Header file for Box struct
+
+        Camera.cpp
+                Class Implementation file for Camera class
+
+        Camera.h
+                Header file for Camera class
+
+        ImageEngine.cpp
+                Class Implementation file for ImageEngine class
+
+        ImageEngine.h
+                Header file for ImageEngine class
+
+        KDTree.cpp
+                Class Implementation file for KDTree class
+
+        KDTree.h
+                Header file for KDTree class
+        
+        main.cpp
+                Driver file for RayTracer++
+                
+        Makefile
+                Makefile
+
+        OrderedList.cpp
+                Class Implementation file for Ordered List class
+
+        OrderedList.h
+                Header file for OrderedList class
+        
+        PolyObject.h
+                Header file for PolyObject class and Triangle struct
+        
+        ray.h
+                Header file for Ray class
+        
+        README
+                this
+        
+        rgb.h
+                Header file for RGB struct
+        
+        Scene.cpp
+                Class Implementation file for Scene class
+
+        Scene.h
+                Header file for Scene class
+        
+        testCamera.cpp
+                test file for Camera clsas
+                
+        testOrderedList.cpp
+                test file for OrderedList class
+        
+        testRayTracer
+                test file for Ray Tracer
+
+        testScene.cpp
+                test file for Scene class
+
+COMPILE
+
+        To compile Ray Tracer++ executable enter the command:
+                make
+         
+
+DATA STRUCTURES && ALGORITHMS
+
+K-D Tree
+
+        Data Structure
+
+                The point of this assignment besides making a Ray Tracer, was 
+                to use Data Structures more exotic than the ones we've seen in
+                class. Ray Tracing, while having the potential to be extremely
+                realistic, is very slow. A KDTree is a Ray Tracing Acceleration
+                Structure; its a data structure that speeds up Ray Tracing by 
+                reducing the number of calculations needed.
+
+                A K-D Tree is a essentially a multidimensional binary search
+                tree. Each inner node represents a plane that splits a region of
+                space into 2 regions, one with k coordinates greater than the 
+                parent, and the other with k coordinates less than the parent.
+                In the context of ray tracing, this lets a ray determine whether
+                or not it'll even enter a specific region in a scene. This
+                dramatically reduces the necessary calculations, since the ray
+                does not perform an intersection test for objects in a region
+                it doesn't traverse
+
+
+        Algorithms
+
+        build
+
+        The general build algorithm is as follows
+
+
+        build(root)
+                bestPlane = findBestPlane();
+                splitCurrentRegion(bestPlane);
+
+                if (shouldTerminate())
+                        return LeafNode();
+                else
+                        return build(leftChild), build(rightChild);
+
+                The method for splitting a region has a direct impact 
+                performance. The naive implementation cycles through each 
+                dimension, partitioning the given region in 2. This definitely
+                helps, but tends to not optimally partition space
+
+                I implemented the build algorithm detailed in the paper:
+                        On building fast kd-Trees for Ray Tracing,
+                        and on doing that in O(N log N)
+
+                This algorithm uses a surface area heuristic, which seeks to
+                minimize the cost of calculating ray intersections which depends
+                on the surface area of the region of the objects within it. To
+                do this, it must find the best split plane candidate. 
+
+                In its simplest, the SAH heuristic for finding the split plane
+                can be expressed as follows
+
+                findBestPlane()
+
+                        generateCandidatePlanes()
+
+                        for each candidate
+                                calculateCostUsingSAH()
+                                bestPlane = CurrentBest
+
+                        return bestPlane
+
+
+                Candidate planes are generated using the bounding box of each 
+                triangle. Each side of the axis aligned bounding box is taken 
+                as a split candidate.
+
+                Then the cost of splitting along the candidate plane is computed.
+                To do this, we must first find the number of triangles on either
+                side of the plane. Then we estimate the cost of splitting along
+                the plane by calculating the cost of intersecting the two sub
+                regions, weighted by the probabilty of hitting them.
+
+                Once we find the best plane, we generate two new nodes, and
+                recursively build them.
+
+        traversal
+
+                traverse(entryPoint, exitPoint)
+
+                        calculatePlaneIntersection();
+
+                        if (leftChild  is closer to ray origin)
+                                near = leftChild;
+                                far  = rightChild;
+                        else
+                                near = rightChild;
+                                far  = leftChild;
+
+                        if (ray doesn't traverse far)
+                                near->traverse(entryPoint, intersect)
+
+                        else if  (ray doesn't traverse near)
+                                far ->traverse(intersect, entrypoint)
+
+                        else
+                                near->traverse(entryPoint, intersect)
+
+                                if (ray hasn't intersected anything)
+                                far->traverse(intersect, entryPoint)
+
+                This continues until reaching a leaf, where the ray does 
+                intersection calculations against all triangles in the node
+
+        Ordered List
+
+                I also implemented a data structure that implements the 
+                mathematical concept of ordered lists. Points, Vectors, and
+                Matrices derived from this concept. So I made an OrderedList 
+                base class, and used inheritance to let the aformentioned 
+                inherite common functionality, like elementwise operations.
+                This class supports lists of arbitrary shape and dimensionally.
+                And it's optimized for small lists, such as 3-D Vectors and
+                Points.
+
+
+        Algorithms
+
+                Ray tracing
+
+                        for each pixel in Screen
+                                eyeRay = generateRay();
+                                closest = KDTree->Intersect(eyeRay);
+
+                                if (closest != Infinity)
+                                        shade();
+
+
+                Intersect
+
+                        closest = Infinity;
+
+                        for each triangle in left node
+                                
+                                intersection = intersectWithTrianglePlane();
+
+                                if ( intersection.isIn( currentTriangle ) )
+                                        closest = min(intersection, closest);
+
+
+
+                Shading
+
+                        for each light in Scene
+                                color += diffuseLight + SpecularLight;
+
+Decision and Layout
+
+The way I conceptualized the project is as follows
+
+RayTracer++ --> Scene --> KDtree --> Objects 
+                      |
+                      --> lights
+                      |
+                      --> Camera
+
+I made RayTracer++, a program that you use to interact with a "scene". The scene
+contains a KD tree that holds the objects along with spatial information.
+The scene also keeps track of the camera and the lights within the scene.
+
+I decided against focusing on recursive ray tracing, and focused more on the KD
+tree since that was the focus of this project.
+
+Significant Changes
+
+
+        I had made a last minute decision to do the independant project,
+        and ended up scheduling a meeting on the deadline. I ended up rushing
+        through the design doc, and didn't fully think through the structure of
+        the project. Essentially, the entire structure of the project is a 
+        "significant change", as it wasn't fully materialized on the design doc
+
+Number of Hours
+
+        I'd say around 30-50. I spent a massive amount of time doing research
+        trying to fully understand K-D trees, and the related algorithms,
+        along with some specifics around Ray Tracing. 
+
+Suggestions for improvement
+
+        If I to redo this project given what I currently know, I would 
+        definitely limit the scope of the project. Going in, I didn't fully 
+        appreciate how much work this project would entail. So I ended up
+        "biting more than i could chew", and I feel like the quality of my
+        project suffered as a result.
+
+        But in any case, this was a cool project and I'm glad I did it. I 
+        learned so much about C++ and about K-D trees
+
+
