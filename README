@@ -1,6 +1,6 @@
  /*
  *
- *  COMP 15 Proj 2 Ray Tracer++ - Reverse Polish Notation Arithmetic  
+ *  COMP 15 Proj 2 Ray Tracer++ -
  *
  *  README
  *  
@@ -11,8 +11,8 @@
 
 PURPOSE
 
-        The purpose of this assignment was to implement a Reverse Polish 
-        Notation Calculator, using a stack
+        The purpose of this assignment was to implement Ray Tracer,
+        using a K-D tree as an acceleration structure.
 
 HELP
         Bianca and Max were awesome mentors!
