@@ -29,12 +29,6 @@ tinyply/source/tinyply.o: CXXFLAGS = -std=c++11 -g3 -O2 -Wno-string-plus-int \
 clean:
 	rm -f ${ALL} tinyply/source/tinyply.o *.o *.dSYM./
 
-# libgtest.a:
-# 	g++ -std=c++11 -isystem ${GTEST}/include -I${GTEST}/ -pthread -c \
-# 	${GTEST}/src/gtest-all.cc \
-# 	&& ar -rv $@ gtest-all.o \
-# 	&& rm gtest-all.o \
-
 unittests: GTEST_INCLUDE = /usr/include
 unittests: GTEST_LIB     = /usr/lib
 unittests: LDFLAGS      += -lgtest -lpthread
