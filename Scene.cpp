@@ -1,233 +1,222 @@
+#include "Scene.h"
+#include <climits>
 #include <iostream>
+#include <vector>
 #include "Camera.h"
 #include "OrderedList.h"
-#include "rgb.h"
-#include "ray.h"
 #include "PolyObject.h"
-#include <vector>
-#include <climits>
-#include "Scene.h"
+#include "ray.h"
+#include "rgb.h"
+#define TESTING
+#ifndef TESTING
 #include "KDTree.h"
-//#include "SAHKDTree.h"
+#else
+#include "KDTree2.h"
+#endif
 #include <algorithm>
+#include <chrono>
 
-using namespace std;
+namespace RayTracerxx {
 
-
-//#define TERMINAL
+// #define TERMINAL
 #define KDTREE
 //#define NORMAL
 
-Scene::Scene(int width, int height) : camera(width, height){
-	tree = NULL;
+Scene::Scene(int width, int height) : camera(width, height) {
+        tree            = NULL;
+        hasBeenModified = false;
 }
 
-Scene::Scene(){
-	tree = NULL;
+Scene::Scene() {
+        tree            = NULL;
+        hasBeenModified = false;
 }
 
-Scene::~Scene(){
-	if (tree != NULL)
-		delete tree;
+Scene::~Scene() {
+        if (tree != NULL)
+                delete tree;
 }
 
-
-void Scene::renderScene(){
-	cout <<"Building tree\n";
-	buildTree();
-	cout <<"Rendering...\n";
-	#ifdef KDTREE
-	for (int y = 0; y < camera.getHeight(); y++){
-		for (int x = 0; x < camera.getWidth(); x++){
-			
-			Ray tracer = camera.getRay(x,y);
-
-			if (tree->Intersect(tracer)){
-				#ifdef TERMINAL
-					cout <<"|";
-				#endif				
-				shade(tracer, camera.getPixel(x,y)) ;
-			}
-			else {
-				#ifdef TERMINAL
-					cout <<" ";
-				#endif				
-				camera.updatePixel(x, y, RGB(0,0,0)) ;				
-			}
-			
-		}
-		#ifdef TERMINAL
-			cout <<endl;
-		#endif
-	}
-	#endif
+void Scene::preview() {
+        bool preview = true;
+        renderScene(preview);
+        std::cout << camera << "\n";
 }
 
-void Scene::addObject(PolyObject newObj){
-	objects.push_back(newObj);
+/**
+ * @brief      Rebuilds the tree if it had been has been modified
+ *             Shades each pixel of the camera screen using rays projected
+ *             from the camera
+ */
+void Scene::renderScene(bool preview) {
+        using namespace std::chrono;
+
+        if (hasBeenModified) {
+                std::cout << "Building tree\n";
+                auto start = high_resolution_clock::now();
+                buildTree();
+                auto end        = high_resolution_clock::now();
+                hasBeenModified = false;
+                std::cout << "Build time: "
+                          << duration_cast<seconds>(end - start).count()
+                          << " seconds\n";
+        }
+
+        std::cout << "Rendering...\n";
+        auto t1 = high_resolution_clock::now();
+        for (int y = 0; y < camera.getHeight(); y++) {
+                for (int x = 0; x < camera.getWidth(); x++) {
+                        Ray tracer = camera.getRay(x, y);
+
+                        if (tree != NULL && tree->Intersect(tracer)) {
+                                if (preview)
+                                        std::cout << "|";
+                                else
+                                        shade(tracer, camera.getPixel(x, y));
+
+                        } else {
+                                if (preview)
+                                        std::cout << ".";
+                                else
+                                        camera.updatePixel(x, y, RGB(0, 0, 0));
+                        }
+                }
+                if (preview)
+                        std::cout << "\n";
+        }
+        auto t2 = high_resolution_clock::now();
+
+        std::cout << "Elapsed time: "
+                  << duration_cast<milliseconds>(t2 - t1).count()
+                  << " milliseconds\n";
 }
 
-void Scene::addLight(Light newLight){
-	lights.push_back(newLight);
+void Scene::addObject(PolyObject newObj) {
+        objects.push_back(newObj);
+        hasBeenModified = true;
 }
 
-void Scene::addLight(initializer_list<float> newPos,
-                     initializer_list<float> newColor){
-	lights.push_back(Light(newPos, newColor));
+void Scene::addLight(Light newLight) {
+        lights.push_back(newLight);
+        hasBeenModified = true;
 }
 
-RGB Scene::trace(Ray &tracer){
-	float t = Infinity;
-	Triangle* closest;
-	float intersect;
-
-	for (size_t j = 0; j < objects.size(); j++){
-		for (size_t i = 0; i < objects[j].mesh.size(); i++){
-			intersect = findIntersection(tracer, objects[j].mesh[i]);
-			
-			if (0 <= intersect and intersect < t){
-				t = intersect;
-				closest = &objects[j].mesh[i];
-			}
-		}
-	}
-
-	if (t != Infinity){
-		Point inter(tracer.origin + tracer.direction * t);
-		#ifdef TERMINAL
-			cout <<"|";
-		#endif
-		tracer.debug = closest;
-		tree->Intersect(tracer);
-		return RGB(255,255,255);
-
-	}
-	else{
-		#ifdef TERMINAL
-			cout <<" ";
-		#endif
-
-		return RGB(0,0,0);
-	}
+void Scene::addLight(std::initializer_list<Number_t> newPos,
+                     std::initializer_list<Number_t> newColor) {
+        lights.push_back(Light(newPos, newColor));
+        hasBeenModified = true;
 }
 
-float Scene::findIntersection(Ray &tracer, Triangle &triangle){
-	Vector normal = triangle.normal;
-	float t = -1;
-	float d = normal.dot( (Vector) triangle.vertices[0]);
+/**
+ * @brief      Iterates through all the lights in the scene
+ *             If the tracer ray has an unobstructed view of a light shader
+ *             models are applied
+ *
+ * @param      tracer  The tracer
+ * @param      pixel   The pixel
+ */
+void Scene::shade(Ray& tracer, RGB& pixel) {
+        pixel.setRGB(0, 0, 0);
 
-	if (normal.dot(tracer.direction) != 0 )
-		t = ( d - normal.dot(tracer.origin) )
-	            /    normal.dot(tracer.direction);
+        for (size_t i = 0; i < lights.size(); i++) {
+                // Move the intersection point away from triangle
+                Point<3> inter =
+                    tracer.intersection() +
+                    (tracer.hit->normal * tracer.intersectionBias);
+                Vector<3> toLight(lights[i].position - inter);
+                Ray       shadow(inter, toLight);
+                shadow.direction.normalize();
 
+                tree->Intersect(shadow);
+                if (Vector<3>(shadow.intersection() - shadow.origin).norm() >=
+                    toLight.norm()) {
+                        //     std::cerr<<"/";
+                        BlinnPhong(pixel, tracer, shadow.direction, lights[i]);
+                        diffuse(pixel, tracer, shadow.direction, lights[i]);
+                }
 
-	if (t < 0)
-		return -1;
-	
-	Point inter(tracer.origin + tracer.direction * t);
-
-	//Checks if point is within the polygon by using the cross product and 
-	//dot product to look at the orientation of intersection point
-	for (int i = 0; i < 3; i++){
-		Vector v1( triangle.vertices[ (i+1)%3 ] - triangle.vertices[i]);
-		Vector v2(inter - triangle.vertices[i]);
-		Vector result = v1.cross(v2);
-
-		if (result.dot(normal) < 0)
-			return -2;
-	}
-
-	return t;	
+                for (unsigned j = 0; j < 3; j++) {
+                        if (pixel[j] > 255)
+                                pixel[j] = 255;
+                        if (pixel[j] < 0)
+                                pixel[j] = 0;
+                }
+        }
 }
 
-void Scene::shade(Ray &tracer, RGB& pixel){
-	pixel.setRGB(0,0,0);
+/**
+ * @brief      Updates pixels with contribution of the BlingPhong model
+ *
+ * @details    https://paroj.github.io/gltut/Illumination/
+ *             Tut11%20BlinnPhong%20Model.html
+ *             https://en.wikipedia.org/wiki/Blinn%E2%80%93Phong_shading_model
+ */
+void Scene::BlinnPhong(RGB& pixel, Ray& tracer, Vector<3>& shadow,
+                       Light& light) {
+        if (shadow.dot(tracer.hit->normal) <= 0)
+                return;
 
-	for ( size_t i = 0; i < lights.size(); i++){
-		Point inter = tracer.intersection();
-		Vector toLight(lights[i].position - inter);
-		Ray shadow(inter, toLight);
-		shadow.direction.normalize();
+        Triangle* hit = tracer.hit;
 
-		tree->Intersect(shadow);
+        Vector<3> h = shadow - tracer.direction;
+        h.normalize();
 
-		if (Vector(shadow.intersection()).magnitude() >= toLight.magnitude()){
-			BlinnPhong(pixel, tracer, shadow.direction, lights[i]);
-			diffuse(pixel, tracer, shadow.direction, lights[i]);
-		}
+        Number_t BlinnTerm =
+            hit->ks * std::max(h.dot(hit->normal), (Number_t)0.0);
 
-		for (int i = 0 ; i < 3; i++){
-			if (pixel[i] > 255)
-				pixel[i] = 255;
-			if (pixel[i] < 0)
-				pixel[i] = 0;
-		}
-	}
-
-
+        pixel = pixel + (hit->color * light.intensity * BlinnTerm);
 }
 
-inline void Scene::ambient(RGB& color){
-	(void) color;
+/**
+ * @brief      Computes the lambertian contribution to pixel color
+ *
+ * @details    Lambert =   Intensity * Material_Reflectance
+ * Unit_Normal dot Light_Vector
+ *
+ *             https://www.wikilectures.eu/w/Lambert%27s_law
+ */
+void Scene::diffuse(RGB& pixel, Ray& tracer, Vector<3>& shadow, Light& light) {
+        if (shadow.dot(tracer.hit->normal) <= 0)
+                return;
+
+        pixel = pixel + tracer.hit->color * light.intensity *
+                            shadow.dot(tracer.hit->normal);
 }
 
-inline void Scene::BlinnPhong(RGB& color,Ray& tracer, Vector& shadow, Light& light){
-	if (shadow.dot(tracer.hit->normal) <= 0)
-		return;
+/**
+ * @brief      Retrieves all the triangles from all the objects
+ *             Determines the bounding box enclosing all of them
+ *             Builds KDTree
+ */
+void Scene::buildTree() {
+        std::vector<Triangle*> tris;
+        int                    numTris = 0;
 
-	Triangle* hit = tracer.hit;
+        for (size_t i = 0; i < objects.size(); i++)
+                numTris += objects[i].mesh.size();
 
-	Vector h = shadow - tracer.direction;
-	h.normalize();
+        tris.reserve(numTris);
 
-	float BlinnTerm = hit->ks * max(h.dot(hit->normal), 0.0f);
+        Number_t xMax, yMax, zMax, xMin, yMin, zMin;
+        xMax = yMax = zMax = -Ray::Infinity;
+        xMin = yMin = zMin = Ray::Infinity;
 
+        for (size_t i = 0; i < objects.size(); i++) {
+                for (size_t j = 0; j < objects[i].mesh.size(); j++) {
+                        tris.push_back(&(objects[i].mesh[j]));
+                }
 
-	color = color + (hit->colors * light.intensity * (BlinnTerm));
+                xMax = std::max(xMax, objects[i].bbox.hi[0]);
+                yMax = std::max(yMax, objects[i].bbox.hi[1]);
+                zMax = std::max(zMax, objects[i].bbox.hi[2]);
 
-
+                xMin = std::min(xMin, objects[i].bbox.low[0]);
+                yMin = std::min(xMin, objects[i].bbox.low[1]);
+                zMin = std::min(xMin, objects[i].bbox.low[2]);
+        }
+        if (tree != NULL)
+                delete tree;
+        tree = new KDTree(Box(xMax, yMax, zMax, xMin, yMin, zMin), tris);
 }
 
-inline void Scene::diffuse(RGB& pixel, Ray& tracer, Vector& shadow,
-                           Light& light){
-	if (shadow.dot(tracer.hit->normal) <= 0)
-		return;
-
-	pixel = pixel + tracer.hit->colors * light.intensity
-	                                   * shadow.dot(tracer.hit->normal);
-}
-
-void Scene::buildTree(){
-	vector<Triangle *> tris;
-	int numTris = 0;
-	
-	for (size_t i = 0; i < objects.size(); i++)
-		numTris += objects[i].mesh.size();
-
-	tris.reserve(numTris);
-
-	float xMax, yMax, zMax, xMin, yMin, zMin;
-	xMax = yMax = zMax = -Infinity;
-	xMin = yMin = zMin =  Infinity;
-
-	for (size_t i = 0; i < objects.size(); i++){
-		for(size_t j = 0; j < objects[i].mesh.size(); j++){
-			tris.push_back(&(objects[i].mesh[j]));
-		}
-
-		xMax = max(xMax, objects[i].bbox.max[0]);
-		yMax = max(yMax, objects[i].bbox.max[1]);
-		zMax = max(zMax, objects[i].bbox.max[2]); 
-
-		xMin = min(xMin, objects[i].bbox.min[0]);
-		yMin = min(xMin, objects[i].bbox.min[1]);
-		zMin = min(xMin, objects[i].bbox.min[2]);
-	}
-	if (tree != NULL)
-		delete tree;
-	tree = new KDTree(Box(xMax, yMax, zMax, xMin, yMin, zMin), tris);
-
-
-
-}
-
+}  // namespace RayTracerxx

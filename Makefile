@@ -1,96 +1,53 @@
-#
-#
-#  COMP 15 Proj 2 RayTracer++ - Reverse Polish Notation Arithmetic
-#
-#  Makefile
-# 
-#  Modified By kdesti01:
-#           On 10/2/2017:
-#
-#
-
 CXX      = clang++
-CXXFLAGS = -g3 -std=c++11 -Wall -Wextra
-LDFLAGS  = -g3
+ifneq   ($(BUILD), debug)
+	CXXFLAGS = -g3 -O2  -std=c++11 -Wall -Wextra  -Wpedantic
+	LDFLAGS  =
+else
+	CXXFLAGS = -g3  -O1 -fsanitize=address -std=c++11 -Wall -Wextra  -Wpedantic -Wshadow
+	LDFLAGS  = -fsanitize=address
+endif
 
-RayTracer++: main.o OrderedList.o Camera.o Scene.o ImageEngine.o OrderedList.o  KDTree.o 
-	${CXX} ${LDFLAGS} $^ -std=c++11 -o RayTracer++ tinyply/source/tinyply.cpp
+INCLUDES = $(shell echo *.h)
+ALL      = RayTracer++ unittests testTemplate generateScene
+TESTS    = ./tests
+UNITTESTS= $(shell echo ${TESTS}/*-unittest.cpp)
 
-main.o:			main.cpp 
-OrderedList.o:		OrderedList.cpp OrderedList.h
-Camera.o:		Camera.cpp Camera.h
-ImageEngine.o:		ImageEngine.cpp ImageEngine.h
-Scene.o:		Scene.cpp Scene.h
-testOrderedList.o:	testOrderedList.cpp OrderedList.h
-testCamera.o:		testCamera.cpp Camera.h
-testScene.o:		testScene.cpp Scene.h
-tinyply.o:		tinyply/source/tinyply.cpp tinyply/source/tinyply.h
-KDTree.o:		KDTree.cpp KDTree.h
+RayTracer++: main.o  Camera.o Scene.o  ImageEngine.o KDTree2.o \
+		tinyply/source/tinyply.o
+	${CXX} ${LDFLAGS} $^ -o $@
 
+
+
+# Silence 3rd Party Library Warnings
+tinyply/source/tinyply.o: CXXFLAGS = -std=c++11 -g3 -O2 -Wno-string-plus-int \
+                                      -Wno-switch
+
+%.o: %.cpp ${INCLUDES}
+	${CXX} ${CXXFLAGS} -c -o $@ $<
+
+.PHONY: clean
 clean:
-	rm -rf RayTracer++ *.o *.dSYM
+	rm -f ${ALL} tinyply/source/tinyply.o *.o *.dSYM./
 
-run: 
-	make && ./RayTracer++
+# libgtest.a:
+# 	g++ -std=c++11 -isystem ${GTEST}/include -I${GTEST}/ -pthread -c \
+# 	${GTEST}/src/gtest-all.cc \
+# 	&& ar -rv $@ gtest-all.o \
+# 	&& rm gtest-all.o \
 
-valgrind: 
-	make && valgrind ./RayTracer++
+unittests: GTEST_INCLUDE = /usr/include
+unittests: GTEST_LIB     = /usr/lib
+unittests: LDFLAGS      += -lgtest -lpthread
+unittests: LDLIBS       += -L ${GTEST_LIB}
+unittests: CXXFLAGS     += -I . -isystem ${GTEST_INCLUDE}
+unittests: ${UNITTESTS} ${TESTS}/runalltests.cpp ${INCLUDES}
+	${CXX} ${CXXFLAGS} $(filter %-unittest.cpp %runalltests.cpp, $^) \
+	-o $@ ${LDLIBS} ${LDFLAGS}
 
-dependencies:
-	make OrderedList.o testOrderedList.o  Camera.o testCamera.o \
-	     testCamera.o Scene.o ImageEngine.o testScene.o tinyply.o KDTree.o
+testTemplate: ${TESTS}/template-experiments.cpp
+	${CXX} ${CXXFLAGS} ${LDFLAGS} $^ -o $@
 
-testStack:
-	make dependencies
-	${CXX} ${CXXFLAGS} testOrderedList.o OrderedList.o   && ./a.out
 
-testCamera:
-	make dependencies
-	${CXX} ${CXXFLAGS} testCamera.o OrderedList.o  Camera.o  \
-		&& ./a.out
+generateScene: ${TESTS}/generateScene.cpp RayTracer++ ${INCLUDES}
+	${CXX} ${CXXFLAGS} ${LDFLAGS} $< -o $@
 
-testScene:
-	make dependencies
-	${CXX} ${CXXFLAGS} testScene.o Scene.o ImageEngine.o OrderedList.o  Camera.o tinyply/source/tinyply.cpp KDTree.o  \
-		&& ./a.out		
-
-testSceneValgrind:
-	make dependencies
-	${CXX} ${CXXFLAGS} testScene.o Scene.o ImageEngine.o OrderedList.o  Camera.o  \
-		&& valgrind ./a.out
-
-testStackValgrind:
-	make dependencies
-	${CXX} ${CXXFLAGS} testOrderedList.o OrderedList.o  && valgrind ./a.out
-
-testCameraValgrind:
-	make dependencies
-	${CXX} ${CXXFLAGS} testCamera.o OrderedList.o  Camera.o   \
-		&& valgrind ./a.out
-
-provide:
-	provide comp15 proj1 OrderedList.h OrderedList.cpp \
-				testOrderedList.cpp Camera.h Camera.cpp \
-				testCamera.cpp main.cpp README Makefile \
-				LinkedList.h emptyTests nonEmptyTest 
-
-# Camera.cpp
-# Camera.h
-# ImageEngine.cpp
-# ImageEngine.h
-# KDTree.cpp
-# KDTree.h
-# main.cpp
-# Makefile
-# OrderedList.cpp
-# OrderedList.h
-# PolyObject.h
-# ray.h
-# README
-# rgb.h
-# Scene.cpp
-# Scene.h
-# testCamera.cpp
-# testOrderedList.cpp
-# testRayTracer
-# testScene.cpp

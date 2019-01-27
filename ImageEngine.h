@@ -9,13 +9,15 @@
 #ifndef ImageEngine_H_
 #define ImageEngine_H_
 
-#include<vector>
-#include<string>
-#include"rgb.h"
+#include <string>
+#include <vector>
+#include "rgb.h"
+
+namespace RayTracerxx {
 
 // the three colors represented in the image
 struct rgb {
-	int red, green, blue;
+        int red, green, blue;
 };
 
 // A .ppm file has the following format:
@@ -31,48 +33,49 @@ struct rgb {
 // See: http://en.wikipedia.org/wiki/Netpbm_format#PPM_example
 
 struct Image {
-	std::string magic_number;             // should be "P3"
-	int width;
-	int height;
-	int max_color;                        // the maximum image amount
-	std::vector<std::vector<rgb> >colors; // the 2D array of colors
+        std::string                   magic_number;  // should be "P3"
+        int                           width;
+        int                           height;
+        int                           max_color;  // the maximum image amount
+        std::vector<std::vector<rgb>> colors;     // the 2D array of colors
 };
 
 class ImageEngine {
 public:
-	ImageEngine();
-	~ImageEngine();
+        ImageEngine();
+        ~ImageEngine();
 
-	// reads in the .ppm file
-	void readImage(std::string filename);
+        // reads in the .ppm file
+        void readImage(std::string filename);
 
-	// scales the image up by an integer factor, e.g., 2x or 3x
-	void scale_up(int factor);
+        // scales the image up by an integer factor, e.g., 2x or 3x
+        void scale_up(int factor);
 
-	// scales the image down by an integer factor, e.g., 2 (half-size)
-	void scale_down(int factor);
+        // scales the image down by an integer factor, e.g., 2 (half-size)
+        void scale_down(int factor);
 
-	// mirrors the image left-right
-	void mirror();
+        // mirrors the image left-right
+        void mirror();
 
-	// flips the image vertically
-	// (note: _not_ a 180 degree rotation!)
-	void flip();
+        // flips the image vertically
+        // (note: _not_ a 180 degree rotation!)
+        void flip();
 
-	// rotates the rgb colors so that r == g, g == b, b == r
-	void psychedelic();
+        // rotates the rgb colors so that r == g, g == b, b == r
+        void psychedelic();
 
-	// saves the output to a new .ppm file
-	void save(std::string filename);
-	void newImage(int width, int height);
-	void copyScreen(RGB*);
+        // saves the output to a new .ppm file
+        void save(std::string filename);
+        void newImage(int width, int height);
+        void copyScreen(RGB *);
+
 private:
-	// copies just the metadata for the image to another
-	// image (not the color data)
-	void copyMetadata(Image &new_image);
+        // copies just the metadata for the image to another
+        // image (not the color data)
+        void copyMetadata(Image &new_image);
 
-	// the image itself
-	Image image;
+        // the image itself
+        Image image;
 };
-
+}  // namespace RayTracerxx
 #endif /* ImageEngine_H_ */

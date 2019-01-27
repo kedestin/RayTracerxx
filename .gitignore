@@ -1,0 +1,8 @@
+*.o
+*.a
+*.ppm
+assets/
+.vscode/
+output/
+unittests
+RayTracer++

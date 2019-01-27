@@ -1,105 +1,160 @@
-// Kevin Destin - Proj 2
 #ifndef BOX_H
 #define BOX_H
 
+#include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <utility>
-#include <cmath>
+#include "OrderedList.h"
 #include "ray.h"
 
-using namespace std;
+namespace RayTracerxx {
 
+/**
+ * @brief      An axis aligned box implemenation
+ *
+ */
+struct Box {
+        Number_t low[3], hi[3];
+        enum COORDINATES { X = 0, Y, Z };
 
-struct Box{
-	float min[3], max[3];
+        Box() : Box(0, 0, 0, 0, 0, 0) {}
 
-	static const int X = 0, Y = 1, Z = 2;
+        /**
+         * @brief      Initializes the box
+         *
+         * @param[in]  xMax  The x maximum
+         * @param[in]  yMax  The y maximum
+         * @param[in]  zMax  The z maximum
+         * @param[in]  xMin  The x minimum
+         * @param[in]  yMin  The y minimum
+         * @param[in]  zMin  The z minimum
+         */
+        Box(Number_t xMax, Number_t yMax, Number_t zMax, Number_t xMin,
+            Number_t yMin, Number_t zMin) {
+                low[X] = xMin;
+                low[Y] = yMin;
+                low[Z] = zMin;
 
-	Box() : Box(0,0,0,0,0,0){}
+                hi[X] = xMax;
+                hi[Y] = yMax;
+                hi[Z] = zMax;
+        }
 
-	Box(float xMax, float yMax, float zMax,
-	    float xMin, float yMin, float zMin){
-		min[0] = xMin;
-		min[1] = yMin;
-		min[2] = zMin;
+        /**
+         * @brief      Computes the length of the box along dimension dim
+         *
+         * @param[in]  dim   The dim
+         *
+         * @return     Number_t length of box
+         */
+        Number_t d(int dim) const { return hi[dim] - low[dim]; }
 
-		max[0] = xMax;
-		max[1] = yMax;
-		max[2] = zMax;
-	}
-	
-	inline float d(int dim) const {
-		return max[dim]-min[dim];
-	}
+        Number_t dX() const { return d(X); }
 
-	inline float dX() const {
-		return d(X);
-	}
+        Number_t dY() const { return d(Y); }
 
-	inline float dY() const {
-		return d(Y);
-	}
+        Number_t dZ() const { return d(Z); }
 
-	inline float dZ() const {
-		return d(Z);
-	}
+        void setMax(int dim, Number_t point) { hi[dim] = point; }
 
-	inline void setMax(int dim, float point) {
-		max[dim] = point;
-	}
+        void setMin(int dim, Number_t point) { low[dim] = point; }
 
-	inline void setMin(int dim, float point) {
-		min[dim] = point;
-	}
+        Number_t volume() const { return dX() * dY() * dZ(); }
 
-	inline float volume() const {
-		return dX()*dY()*dZ();
-	}
+        /**
+         * @brief      Computes the surface area of a box
+         *
+         * @return     Number_t area of the box
+         */
+        Number_t area() const {
+                return 2 * dX() * dY() + 2 * dX() * dZ() + 2 * dY() * dZ();
+        }
 
-	inline bool isPlanar() const {
-		return (volume() == 0);
-	}
+        /**
+         * @brief      Checks if box is planar in given dimension
+         *
+         * @param[in]  k     Dimension
+         *
+         * @return     True if planar, False otherwise.
+         */
+        bool isPlanar(int k) const { return (d(k) == 0); }
 
-	inline bool contains(Box b) const {
-		for (int i = 0; i < 3; i++){
-			if (min[i] > b.min[i] or max[i] < b.min[i])
-				return false;
-		}
+        /**
+         * @brief      Checks whether the box b in contained in *this
+         *
+         * @param[in]  b     box to check
+         *
+         * @return     False if any portion of b is not in *this,
+         *             True otherwise
+         */
+        bool contains(const Box& b) const {
+                for (int i = 0; i < 3; i++) {
+                        if (low[i] > b.low[i] or hi[i] < b.low[i])
+                                return false;
+                }
 
-		return true;
-	}
+                return true;
+        }
 
-	pair<float, float> Intersect(Ray &r) const {
-		float tmin, tmax, tymin, tymax, tzmin, tzmax;
+        friend std::ostream& operator<<(std::ostream& out, const Box& b) {
+                return out << "X(" << b.low[X] << "," << b.hi[X] << ") "
+                           << "Y(" << b.low[Y] << "," << b.hi[Y] << ") "
+                           << "Z(" << b.low[Z] << "," << b.hi[Z] << ") ";
+        }
 
- 
-		tmin  = ( (r.isNeg[0] ? max : min)[0] - r.origin[0]) * r.inv(0);
-		tmax  = ( (r.isNeg[0] ? min : max)[0] - r.origin[0]) * r.inv(0);
+        /**
+         * @brief      Finds the entry and exit t for the given Ray
+         *
+         * @param      r     Ray to Intersect
+         *
+         * @return     std::pair<Number_t, Number_t>  first  - t_min
+         *                                            second - t_max
+         *             Returns pair<Ray::Infinity, Ray::Infinity> on miss
+         * @Acknowledgement
+         *             https://www.scratchapixel.com/lessons/
+         *             3d-basic-rendering/
+         *             minimal-ray-tracer-rendering-simple-shapes/
+         *             ray-box-intersection
+         */
+        std::pair<Number_t, Number_t> Intersect(Ray& r) const {
+                Number_t tmin, tmax, tymin, tymax, tzmin, tzmax;
+                // Stores constant in variable to avoid ODR-used linker errors
+                Number_t infty = Ray::Infinity;
 
-		tymin = ( (r.isNeg[1] ? max : min)[1] - r.origin[1]) * r.inv(1);
-		tymax = ( (r.isNeg[1] ? min : max)[1] - r.origin[1]) * r.inv(1);
-		//if ((tmin > tymax) || (tymin > tmax)) 
-		//	return pair<float, float>(tmin, tmax); 
+                // Unrolling this loop was more performant
+                tmin = ((r.isNeg[X] ? hi : low)[X] - r.origin[X]) * r.inv(X);
+                tmax = ((r.isNeg[X] ? low : hi)[X] - r.origin[X]) * r.inv(X);
 
-		if (tymin > tmin) 
-			tmin = tymin; 
-		if (tymax < tmax) 
-			tmax = tymax; 
+                tymin = ((r.isNeg[Y] ? hi : low)[Y] - r.origin[Y]) * r.inv(Y);
+                tymax = ((r.isNeg[Y] ? low : hi)[Y] - r.origin[Y]) * r.inv(Y);
 
-		tzmin = ( (r.isNeg[2] ? max : min)[2] - r.origin[2]) * r.inv(2);
-		tzmax = ( (r.isNeg[2] ? min : max)[2] - r.origin[2]) * r.inv(2);
+                if ((tymin > tymax) || (tmin > tmax))
+                        return std::pair<Number_t, Number_t>(infty, infty);
+                if (tymin > tmin)
+                        tmin = tymin;
+                if (tymax < tmax)
+                        tmax = tymax;
 
-		//if ((tmin > tzmax) || (tzmin > tmax)) 
-		//	return pair<float, float>(tmin, tmax);
+                tzmin = ((r.isNeg[Z] ? hi : low)[Z] - r.origin[Z]) * r.inv(Z);
+                tzmax = ((r.isNeg[Z] ? low : hi)[Z] - r.origin[Z]) * r.inv(Z);
 
-		if (tzmin > tmin) 
-			tmin = tzmin;
+                if ((tzmin > tzmax) || (tmin > tmax))
+                        return std::pair<Number_t, Number_t>(infty, infty);
 
-		if (tzmax < tmax) 
-			tmax = tzmax; 
+                if (tzmin > tmin)
+                        tmin = tzmin;
 
-		return pair<float, float>(tmin, tmax); 
-	}
+                if (tzmax < tmax)
+                        tmax = tzmax;
+
+                if ((tmax >= 0.0f) && (tmin <= tmax))
+                        return std::pair<Number_t, Number_t>(tmin, tmax);
+                else
+                        return std::pair<Number_t, Number_t>(infty, infty);
+        }
 };
+
+}  // namespace RayTracerxx
 
 #endif
