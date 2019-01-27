@@ -4,8 +4,7 @@
 ## What is RayTracer++
 
 RayTracer++ is a simple scene description language that uses accelerated
-raytracing to render scenes. Users can import triangle meshes stored and ply
-files, preview the render on the terminal, and render the image.
+raytracing to render scenes. Users can import triangle meshes from .ply files, preview the scene on the terminal, and render the image.
 
 ## Quick start
 
