@@ -1,4 +1,4 @@
-# tinyply 2.2
+# [tinyply 2.2](https://github.com/ddiakopoulos/tinyply)
 
 [![Release is 2.2](http://img.shields.io/badge/release-2.2-blue.svg?style=flat)](https://raw.githubusercontent.com/ddiakopoulos/tinyply/master/source/tinyply.h)
 [![License is Unlicense](http://img.shields.io/badge/license-Unlicense-blue.svg?style=flat)](http://unlicense.org/)
